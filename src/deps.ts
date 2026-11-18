@@ -3,7 +3,6 @@ import type { TokenCipher } from "./crypto/cipher.ts";
 import { StaticCipher } from "./crypto/static.ts";
 import type { KmsClientLike } from "./crypto/kms.ts";
 import type { AwsKmsClientLike } from "./crypto/awskms.ts";
-import { DenoKvStore } from "./store/denokv.ts";
 import type { Clock, Store } from "./store/store.ts";
 
 /** Everything the app needs from the outside world, injected once at startup. */
@@ -15,7 +14,8 @@ export interface AppDeps {
   fetch: typeof fetch;
 }
 
-// The Google Cloud SDKs are optional dependencies, imported only when selected.
+// Backend SDKs (and @deno/kv's native binding) are optional and imported only
+// when selected, so serverless bundles (Vercel/Lambda) never load unused ones.
 async function buildStore(config: Config, clock: Clock): Promise<Store> {
   if (config.storage === "firestore") {
     const { Firestore } = await import("@google-cloud/firestore");
@@ -35,6 +35,7 @@ async function buildStore(config: Config, clock: Clock): Promise<Store> {
     });
     return new PostgresStore(client, clock);
   }
+  const { DenoKvStore } = await import("./store/denokv.ts");
   return await DenoKvStore.open({ path: config.kvPath, clock });
 }
 
