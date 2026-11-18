@@ -51,18 +51,18 @@ All through natural conversation with Claude or any other MCP-compatible client.
 
 ## Deployment Modes
 
-The same server runs in four modes. Pick one by where it runs and who uses it;
+The same server runs in five modes. Pick one by where it runs and who uses it;
 the MCP tools and the OAuth flow are identical in all of them.
 
-| | Deno Deploy | Node / container | Google Cloud (shared) | AWS (serverless) |
-|---|---|---|---|---|
-| **Best for** | The hosted server; quick personal instance | Self-hosting anywhere that runs Node or Docker | A team on one Google Workspace domain | A team on AWS |
-| **Runtime** | Deno Deploy (`build/index.js`) | Node 22 (`npm start`) or the `Dockerfile` | Cloud Run, scales to zero | Lambda (Node 22) behind an API Gateway HTTP API, scales to zero |
-| **Storage** | Deno KV (managed) | Deno KV file (`KV_PATH`) | Firestore (`STORAGE=firestore`) | DynamoDB (`STORAGE=dynamodb`) |
-| **Token encryption** | AES-256-GCM, `ENCRYPTION_SECRET` | AES-256-GCM, `ENCRYPTION_SECRET` | Cloud KMS (`CIPHER=gcpkms`), key rotated every 90 days | AWS KMS (`CIPHER=awskms`), key rotation on |
-| **Who can sign in** | Any Google account | Any Google account, or one domain (`ALLOWED_DOMAIN`) | One Workspace domain (Internal consent screen + `ALLOWED_DOMAIN`) | One domain (`ALLOWED_DOMAIN`) |
-| **Set up with** | [Step 4](#deploy-to-deno-deploy) | [Step 4](#run-on-node--in-a-container) | [DEPLOY.md](DEPLOY.md) (Terraform in `infra/`) | [DEPLOY.aws.md](DEPLOY.aws.md) (Terraform in `infra-aws/`) |
-| **Operate with** | Deno Deploy dashboard | [MAINTAIN.md](MAINTAIN.md) | [MAINTAIN.md](MAINTAIN.md), incl. `npm run revoke` | [MAINTAIN.md](MAINTAIN.md), incl. `npm run revoke` |
+| | Deno Deploy | Node / container | Google Cloud (shared) | AWS (serverless) | Vercel (personal) |
+|---|---|---|---|---|---|
+| **Best for** | The hosted server; quick personal instance | Self-hosting anywhere that runs Node or Docker | A team on one Google Workspace domain | A team on AWS | Single-user on Vercel |
+| **Runtime** | Deno Deploy (`build/index.js`) | Node 22 (`npm start`) or the `Dockerfile` | Cloud Run, scales to zero | Lambda (Node 22) behind an API Gateway HTTP API, scales to zero | Vercel Node 22 (`api/index.ts`) |
+| **Storage** | Deno KV (managed) | Deno KV file (`KV_PATH`) | Firestore (`STORAGE=firestore`) | DynamoDB (`STORAGE=dynamodb`) | Supabase Postgres (`STORAGE=postgres`) |
+| **Token encryption** | AES-256-GCM, `ENCRYPTION_SECRET` | AES-256-GCM, `ENCRYPTION_SECRET` | Cloud KMS (`CIPHER=gcpkms`), key rotated every 90 days | AWS KMS (`CIPHER=awskms`), key rotation on | AES-256-GCM, `ENCRYPTION_SECRET` |
+| **Who can sign in** | Any Google account | Any Google account, or one domain (`ALLOWED_DOMAIN`) | One Workspace domain (Internal consent screen + `ALLOWED_DOMAIN`) | One domain (`ALLOWED_DOMAIN`) | Your Google account (optional `ALLOWED_DOMAIN`) |
+| **Set up with** | [Step 4](#deploy-to-deno-deploy) | [Step 4](#run-on-node--in-a-container) | [DEPLOY.md](DEPLOY.md) (Terraform in `infra/`) | [DEPLOY.aws.md](DEPLOY.aws.md) (Terraform in `infra-aws/`) | [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) |
+| **Operate with** | Deno Deploy dashboard | [MAINTAIN.md](MAINTAIN.md) | [MAINTAIN.md](MAINTAIN.md), incl. `npm run revoke` | [MAINTAIN.md](MAINTAIN.md), incl. `npm run revoke` | [MAINTAIN.md](MAINTAIN.md) |
 
 Every setting beyond the original ones is optional: with only the variables in
 the [reference](#environment-variables-reference) set, the server behaves as it
@@ -317,6 +317,12 @@ provider "aws" {
 }
 ```
 
+#### Deploy to Vercel (Node + Supabase Postgres)
+
+For a personal single-user instance on Vercel with persistent OAuth state in
+Supabase, see [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md). Use `STORAGE=postgres` —
+without it, Deno KV is in-memory on serverless and every cold start logs you out.
+
 Terraform does not build the Lambda code. Run `npm run build:lambda:zip`
 (writes `build/lambda.zip`) before every `terraform apply`; when referencing the
 child module remotely, point `lambda_zip_path` at that zip. Details in
@@ -366,9 +372,10 @@ Configure your MCP client with the following connection details:
 | `ALLOWED_REDIRECT_URIS` | No | Allowlist of client redirect URIs; set it on shared servers |
 | `PUBLIC_PAGES` | No | `true` (HTML pages), `false` (JSON only) or `auto` (HTML for browsers, JSON otherwise) |
 | `ANALYTICS`, `PRIVACY_POLICY_URL` | No | Drop the pages' analytics tag; redirect `/privacy-policy` to your own policy |
-| `STORAGE`, `CIPHER` | No | `firestore` and `gcpkms` for the Google Cloud mode (see [MAINTAIN.md](MAINTAIN.md)) |
+| `STORAGE`, `CIPHER` | No | `firestore`/`gcpkms`, `dynamodb`/`awskms`, or `postgres` (see [MAINTAIN.md](MAINTAIN.md)) |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | With `STORAGE=postgres` | Supabase project URL + service role key ([DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)) |
 
-The full list, including the Google Cloud settings, is in [MAINTAIN.md](MAINTAIN.md#configuration).
+The full list, including cloud and Vercel settings, is in [MAINTAIN.md](MAINTAIN.md#configuration).
 
 ### Development Commands
 
@@ -389,15 +396,20 @@ src/
 ├── server/            # Hono app, MCP endpoint, middleware, rate limiting
 ├── tools/             # MCP tools for Google Tasks API (tasklists, tasks)
 ├── google/            # Google Tasks API client and Google OAuth
-├── store/             # Storage backends: Deno KV, Firestore
-├── crypto/            # Token encryption: static key, Cloud KMS
+├── store/             # Storage backends: Deno KV, Firestore, DynamoDB, Postgres
+├── crypto/            # Token encryption: static key, Cloud KMS, AWS KMS
 ├── cli/               # revoke command
 ├── utils/             # Logger and timestamp helpers
 ├── config.ts          # Environment → validated config
 ├── deps.ts            # Wires store, cipher, clock and fetch
 ├── index.ts           # Deno Deploy entry point
-└── node.ts            # Node entry point
+├── node.ts            # Node entry point
+├── lambda.ts          # AWS Lambda entry point
+└── vercel.ts          # Vercel serverless entry point
+api/                   # Vercel function re-export
+supabase/migrations/   # Postgres schema for STORAGE=postgres
 infra/                 # Terraform for the Google Cloud mode
+infra-aws/             # Terraform for the AWS mode
 ```
 
 ## Security Features

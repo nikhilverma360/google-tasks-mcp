@@ -27,6 +27,14 @@ async function buildStore(config: Config, clock: Clock): Promise<Store> {
     const { DynamoDbStore } = await import("./store/dynamodb.ts");
     return new DynamoDbStore(new DynamoDBClient({ region: config.awsRegion }), config.dynamoDbTable!, clock);
   }
+  if (config.storage === "postgres") {
+    const { createClient } = await import("@supabase/supabase-js");
+    const { PostgresStore } = await import("./store/postgres.ts");
+    const client = createClient(config.supabaseUrl!, config.supabaseServiceRoleKey!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    return new PostgresStore(client, clock);
+  }
   return await DenoKvStore.open({ path: config.kvPath, clock });
 }
 

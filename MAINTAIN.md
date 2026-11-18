@@ -17,10 +17,12 @@
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | required | OAuth web client |
 | `GOOGLE_REDIRECT_URI` | `http://localhost:3000/callback` | `<ISSUER_URL>/callback` |
 | `ISSUER_URL` | request origin | Set it behind any proxy (Cloud Run sees `http`) |
-| `STORAGE` | `denokv` | `firestore` for the gcloud option |
+| `STORAGE` | `denokv` | `firestore` (gcloud), `dynamodb` (AWS), `postgres` (Vercel/Supabase) |
 | `KV_PATH` | unset | Deno KV file on Node. **Unset on Node = in memory**: every restart logs everyone out |
 | `FIRESTORE_DATABASE` | — | Required with `STORAGE=firestore` |
-| `CIPHER` | `static` | `gcpkms` for Cloud KMS |
+| `DYNAMODB_TABLE` | — | Required with `STORAGE=dynamodb` |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | — | Required with `STORAGE=postgres` (service role only; see [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)) |
+| `CIPHER` | `static` | `gcpkms` for Cloud KMS; `awskms` for AWS |
 | `ENCRYPTION_SECRET` | required for `static` | ≥ 32 chars |
 | `KMS_KEY_NAME` | — | Required with `CIPHER=gcpkms` |
 | `ALLOWED_DOMAIN` | unset (any account) | Workspace domain; checks `hd` + `email_verified` |

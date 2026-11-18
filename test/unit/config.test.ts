@@ -48,6 +48,30 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...base, STORAGE: "dynamodb", DYNAMODB_TABLE: "tbl" }).dynamoDbTable).toBe("tbl");
   });
 
+  it("postgres_requires_supabase", () => {
+    expect(() => loadConfig({ ...base, STORAGE: "postgres" })).toThrow(/SUPABASE_URL/);
+    expect(() =>
+      loadConfig({ ...base, STORAGE: "postgres", SUPABASE_URL: "https://example.supabase.co" }),
+    ).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(() =>
+      loadConfig({
+        ...base,
+        STORAGE: "postgres",
+        SUPABASE_URL: "http://example.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "key",
+      }),
+    ).toThrow(/SUPABASE_URL/);
+    const c = loadConfig({
+      ...base,
+      STORAGE: "postgres",
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+    });
+    expect(c.storage).toBe("postgres");
+    expect(c.supabaseUrl).toBe("https://example.supabase.co");
+    expect(c.supabaseServiceRoleKey).toBe("service-role-key");
+  });
+
   it("awskms_requires_key", () => {
     expect(() => loadConfig({ ...base, CIPHER: "awskms" })).toThrow(/AWS_KMS_KEY_ID/);
     expect(loadConfig({ ...base, CIPHER: "awskms", AWS_KMS_KEY_ID: "arn:aws:kms:eu-west-1:111122223333:key/abcd" }).cipher).toBe("awskms");

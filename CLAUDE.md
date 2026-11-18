@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Google Tasks MCP Server — an open-source Model Context Protocol server that lets AI assistants manage Google Tasks through natural language. Built with Hono, MCP SDK, and Deno KV. Runs on Deno Deploy, Node, Cloud Run (Firestore + KMS; see `DEPLOY.md`), or AWS Lambda (DynamoDB + AWS KMS; see `DEPLOY.aws.md`, Terraform in `infra-aws/`).
+Google Tasks MCP Server — an open-source Model Context Protocol server that lets AI assistants manage Google Tasks through natural language. Built with Hono, MCP SDK, and Deno KV. Runs on Deno Deploy, Node, Cloud Run (Firestore + KMS; see `DEPLOY.md`), AWS Lambda (DynamoDB + AWS KMS; see `DEPLOY.aws.md`, Terraform in `infra-aws/`), or Vercel (Supabase Postgres; see `DEPLOY_VERCEL.md`).
 
 ## Commands
 
@@ -28,6 +28,7 @@ Google Tasks MCP Server — an open-source Model Context Protocol server that le
 - `src/index.ts` — Deno Deploy: exports `{ fetch: app.fetch }`.
 - `src/node.ts` — Node/containers/Cloud Run: serves the app with `@hono/node-server` on `PORT`.
 - `src/lambda.ts` — AWS Lambda (`@hono/aws-lambda`): at cold start loads `{client_id, client_secret}` from Secrets Manager into `process.env`, then builds the app.
+- `src/vercel.ts` + `api/index.ts` — Vercel Node function (`hono/vercel`); `vercel.json` routes all paths to it.
 - `src/cli/revoke.ts` — `npm run revoke` kill switch.
 
 ### Request Flow
@@ -44,7 +45,7 @@ Client → Hono HTTP (app.ts) → Security headers middleware → CORS middlewar
 
 ### Key Modules
 
-- **`src/store/`** — `Store` interface (`get/set ttl/delete/take/list`), values wrapped `{ v, expiresAt }` and checked against the injected clock. `DenoKvStore` (default; **in memory on Node unless `KV_PATH`**) `FirestoreStore` and `DynamoDbStore`.
+- **`src/store/`** — `Store` interface (`get/set ttl/delete/take/list`), values wrapped `{ v, expiresAt }` and checked against the injected clock. `DenoKvStore` (default; **in memory on Node unless `KV_PATH`**), `FirestoreStore`, `DynamoDbStore`, and `PostgresStore` (`STORAGE=postgres` via Supabase).
 - **`src/crypto/`** — `TokenCipher`: `StaticCipher` (upstream AES-256-GCM format, key derived once), `KmsCipher` (Cloud KMS per token) and `AwsKmsCipher` (AWS KMS per token).
 - **`src/auth/token-store.ts`** — Grants (encrypted Google tokens, email) plus 1 h access / 30 d rotating refresh tokens, keyed by SHA-256 hash; reuse after a 60 s grace revokes the grant.
 - **`src/auth/oauth.ts`** — OAuth 2.1 + PKCE. `/authorize` validates client and redirect (400, never redirects). Google code is exchanged at `/callback` (id_token → email; `ALLOWED_DOMAIN` check). `/token` handles `authorization_code` and `refresh_token`.
