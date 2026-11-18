@@ -28,7 +28,7 @@ Google Tasks MCP Server — an open-source Model Context Protocol server that le
 - `src/index.ts` — Deno Deploy: exports `{ fetch: app.fetch }`.
 - `src/node.ts` — Node/containers/Cloud Run: serves the app with `@hono/node-server` on `PORT`.
 - `src/lambda.ts` — AWS Lambda (`@hono/aws-lambda`): at cold start loads `{client_id, client_secret}` from Secrets Manager into `process.env`, then builds the app.
-- `src/vercel.ts` + `api/index.ts` — Vercel Node function (`hono/vercel`); `vercel.json` routes all paths to it.
+- `src/vercel.ts` + `api/index.ts` — Vercel Node function (`hono/vercel`); `api/index.ts` re-exports `src/vercel.ts` so `@vercel/node` bundles `src/` (not `build/`). `vercel.json` routes all paths to it and includes `public/**`.
 - `src/cli/revoke.ts` — `npm run revoke` kill switch.
 
 ### Request Flow

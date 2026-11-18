@@ -1,5 +1,6 @@
 // Vercel serverless entrypoint: exports a Web-standard handler via hono/vercel.
-// Pair with api/index.ts + vercel.json (catch-all routes, maxDuration, public/).
+// api/index.ts re-exports this module so @vercel/node traces/bundles src/
+// (never import a prebuilt build/ file — it is not in the function package).
 import process from "node:process";
 import { handle } from "hono/vercel";
 import { loadConfig } from "./config.ts";

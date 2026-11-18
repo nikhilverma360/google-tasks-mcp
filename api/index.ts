@@ -1,3 +1,4 @@
-// Vercel discovers this file as the serverless function. The compiled app lives
-// in build/ (npm run build); vercel.json sets buildCommand and includeFiles.
-export { default } from "../build/vercel.js";
+// Vercel serverless entry: import the TypeScript app so @vercel/node/esbuild
+// traces and bundles src/ (do not import ../build — that file is not in the
+// function bundle even when buildCommand runs).
+export { default } from "../src/vercel.ts";

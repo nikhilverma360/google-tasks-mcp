@@ -36,9 +36,11 @@ role** key (never the anon key).
 ## 3. Vercel project
 
 1. Import this repository in Vercel (Root Directory = repo root).
-2. Framework preset: Other. `vercel.json` sets `buildCommand` (`npm run build`),
-   routes every path to `api/index.ts`, `maxDuration` 60s, and includes
-   `public/**` + `build/**` in the function bundle.
+2. `vercel.json` sets `"framework": null` (avoids Dockerfile → “container”
+   auto-detect), routes every path to `api/index.ts`, sets `maxDuration` 60s,
+   and includes `public/**` for HTML pages. The function imports `src/` directly
+   so `@vercel/node` bundles the app — no separate `tsc` output is required at
+   runtime.
 3. Set the environment variables below (Production; Preview optional).
 4. Deploy.
 
