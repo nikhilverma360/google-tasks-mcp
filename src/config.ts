@@ -10,10 +10,12 @@ export interface OAuthConfig {
 export interface Config {
   google: OAuthConfig;
   issuerUrl?: string;
-  storage: "denokv" | "firestore" | "dynamodb";
+  storage: "denokv" | "firestore" | "dynamodb" | "postgres";
   kvPath?: string;
   firestoreDatabase?: string;
   dynamoDbTable?: string;
+  supabaseUrl?: string;
+  supabaseServiceRoleKey?: string;
   cipher: "static" | "gcpkms" | "awskms";
   encryptionSecret?: string;
   kmsKeyName?: string;
@@ -119,7 +121,7 @@ function proxyHops(env: Env): number | undefined {
 }
 
 export function loadConfig(env: Env): Config {
-  const storage = oneOf(env, "STORAGE", ["denokv", "firestore", "dynamodb"] as const, "denokv");
+  const storage = oneOf(env, "STORAGE", ["denokv", "firestore", "dynamodb", "postgres"] as const, "denokv");
   const cipher = oneOf(env, "CIPHER", ["static", "gcpkms", "awskms"] as const, "static");
 
   const encryptionSecret = opt(env, "ENCRYPTION_SECRET");
@@ -139,6 +141,21 @@ export function loadConfig(env: Env): Config {
   if (storage === "dynamodb" && !dynamoDbTable) {
     throw new ConfigError("DYNAMODB_TABLE is required when STORAGE=dynamodb");
   }
+  const supabaseUrl = opt(env, "SUPABASE_URL");
+  const supabaseServiceRoleKey = opt(env, "SUPABASE_SERVICE_ROLE_KEY");
+  if (storage === "postgres") {
+    if (!supabaseUrl) throw new ConfigError("SUPABASE_URL is required when STORAGE=postgres");
+    if (!supabaseServiceRoleKey) {
+      throw new ConfigError("SUPABASE_SERVICE_ROLE_KEY is required when STORAGE=postgres");
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(supabaseUrl);
+    } catch {
+      throw new ConfigError(`SUPABASE_URL must be a URL (got "${supabaseUrl}")`);
+    }
+    if (parsed.protocol !== "https:") throw new ConfigError("SUPABASE_URL must use https");
+  }
 
   const port = Number(opt(env, "PORT") ?? "3000");
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new ConfigError("PORT must be an integer port number");
@@ -154,6 +171,8 @@ export function loadConfig(env: Env): Config {
     kvPath: opt(env, "KV_PATH"),
     firestoreDatabase,
     dynamoDbTable,
+    supabaseUrl: storage === "postgres" ? supabaseUrl : undefined,
+    supabaseServiceRoleKey: storage === "postgres" ? supabaseServiceRoleKey : undefined,
     cipher,
     encryptionSecret: cipher === "static" ? encryptionSecret : undefined,
     kmsKeyName,
